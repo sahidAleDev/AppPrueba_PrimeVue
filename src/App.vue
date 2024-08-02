@@ -1,14 +1,21 @@
 <script setup lang="ts">
 import { RouterLink, RouterView } from 'vue-router'
+import BreadCrum from './components/BreadCrum.vue';
+import Toast from 'primevue/toast';
+import Button from 'primevue/button';
+
+
+
 </script>
 
 <template>
-  <header>
-    <nav>
-      <RouterLink to="/">Home</RouterLink>
-      <RouterLink to="/about">About</RouterLink>
-    </nav>
-  </header>
 
-  <RouterView />
+    <Toast />
+    <header>
+      <BreadCrum />
+    </header>
+  
+    
+    <RouterView />
 </template>
+
