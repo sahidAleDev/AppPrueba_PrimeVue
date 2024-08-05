@@ -5,5 +5,5 @@ export interface Product {
   price: number;
   image: string;
   inventoryStatus: string;
-  inExistence: boolean;
+  inExistence: boolean | null
 }

@@ -53,7 +53,6 @@ const filters = ref({
   inventoryStatus: { value: null, matchMode: FilterMatchMode.EQUALS },
   inExistence: { value: null, matchMode: FilterMatchMode.EQUALS }
 });
-const loading = ref<boolean>(false);
 const productDialog = ref<boolean>(false);
 const product = ref<Product>();
 const products = ref<Product[]>($productStore.products);
@@ -92,6 +91,7 @@ const confirmDeleteSelected = () => {
  */
 const deleteProduct = () => {
   products.value = products.value.filter(val => val.id !== product.value?.id);
+  $productStore.setProducts(products.value);
   deleteProductDialog.value = false;
   product.value = undefined;
   toast.add({ severity: 'success', summary: 'Successful', detail: 'Product Deleted', life: 3000 });
@@ -102,6 +102,7 @@ const deleteProduct = () => {
  */
 const deleteSelectedProducts = () => {
   products.value = products.value.filter(val => !selectedProducts.value.includes(val));
+  $productStore.setProducts(products.value);
   deleteProductsDialog.value = false;
   selectedProducts.value = [];
   toast.add({ severity: 'success', summary: 'Successful', detail: 'Products Deleted', life: 3000 });
@@ -141,7 +142,7 @@ const openNew = () => {
     price: 0,
     image: '',
     inventoryStatus: 'instock',
-    inExistence: false
+    inExistence: null
   };
   submitted.value = false;
   productDialog.value = true;
@@ -163,7 +164,7 @@ const saveProduct = () => {
   submitted.value = true;
 
   if (product.value) {
-    if (product.value.name.trim()) {
+    if (product.value.name.trim() && product.value.inventoryStatus.trim() && product.value.brand.trim() && product.value.price && product.value.inExistence !== null) {
       if (product.value.id) {
         const index = products.value.findIndex((p: Product) => p.id === product.value?.id);
         products.value[index] = { ...product.value, id: product.value.id };

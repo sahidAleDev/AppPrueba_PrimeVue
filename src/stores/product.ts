@@ -9,7 +9,14 @@ export const useProductStore = defineStore(STORE_NAME, () => {
   const products = ref<Product[]>([])
   products.value = ProductService.getProductsData()
 
+
+  function setProducts(newProducts: Product[]) {
+    products.value = newProducts
+  }
+
   return { 
-    products
+    products,
+
+    setProducts
   }
 })
