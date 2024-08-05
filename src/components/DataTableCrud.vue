@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { FilterMatchMode } from '@primevue/core/api';
 import { ref } from 'vue';
-import type { Product } from '@/types';
+import { useProductStore } from '@/stores/product';
 import { useToast } from "primevue/usetoast";
-const toast = useToast();
+import type { Product } from '@/types';
 
 /**
  * ------------------------------------------
@@ -35,6 +35,8 @@ interface Statuses {
   value: string;
 }
 
+const toast = useToast();
+const $productStore = useProductStore();
 /**
  * ------------------------------------------
  *	Data
@@ -54,14 +56,7 @@ const filters = ref({
 const loading = ref<boolean>(false);
 const productDialog = ref<boolean>(false);
 const product = ref<Product>();
-const products = ref([
-  { id: 1, name: "Air Max", brand: "Nike", price: 100, image: "/img1.png", inventoryStatus: "outofstock", inExistence: false },
-  { id: 2, name: "Ultraboost", brand: "Adidas", price: 150, image: "/img2.png", inventoryStatus: "lowstock", inExistence: true },
-  { id: 3, name: "Suede Classic", brand: "Puma", price: 120, image: "/img3.png", inventoryStatus: "instock", inExistence: true },
-  { id: 4, name: "Nano", brand: "Reebok", price: 90, image: "/img1.png", inventoryStatus: "instock", inExistence: true },
-  { id: 5, name: "Gel-Kayano", brand: "Asics", price: 200, image: "/img2.png", inventoryStatus: "lowstock", inExistence: true },
-  { id: 6, name: "990v5", brand: "New Balance", price: 120, image: "/img3.png", inventoryStatus: "outofstock", inExistence: false },
-]);
+const products = ref<Product[]>($productStore.products);
 const selectedProducts = ref<Product[]>([]);
 const statuses = ref<Statuses[]>([
   { label: 'INSTOCK', value: 'instock' },
@@ -85,7 +80,9 @@ const confirmDeleteProduct = (prod: Product) => {
   deleteProductDialog.value = true;
 };
 
-
+/**
+ * confirmDeleteSelected
+ */
 const confirmDeleteSelected = () => {
   deleteProductsDialog.value = true;
 };
@@ -118,7 +115,7 @@ const getSeverity = (status: string) => {
     case 'outofstock':
       return 'danger';
     case 'lowstock':
-      return 'warning';
+      return 'warn';
     case 'instock':
       return 'success';
     default:
@@ -173,7 +170,8 @@ const saveProduct = () => {
         toast.add({ severity: 'error', summary: 'Successful', detail: 'Product Updated', life: 3000 });
         console.log('Product Updated');
       } else {
-        const id = products.value[products.value.length - 1].id + 1;
+        const id = products.value.length > 0 ? Math.max(...products.value.map(p => Number(p.id))) + 1 : 1;
+        product.value.image = 'calaverita-logo.png';
         products.value.push({ ...product.value, id });
         toast.add({ severity: 'success', summary: 'Successful', detail: 'Product Created', life: 3000 });
         console.log('Product Created');
@@ -194,14 +192,13 @@ const saveProduct = () => {
       <template #start>
         <Button 
           @click="openNew" 
-          class="mr-2 bg-green-500" 
+          class="mr-2" 
           icon="pi pi-plus" 
           label="Nuevo" 
-          severity="success" 
+          severity="success"
         />
         <Button 
           @click="confirmDeleteSelected"
-          class="bg-red-500"
           :disabled="!selectedProducts || !selectedProducts.length" 
 
           icon="pi pi-trash" 
@@ -213,7 +210,7 @@ const saveProduct = () => {
 
     <DataTable 
       :paginator="true" 
-      :rows="5"
+      :rows="10"
       :rowsPerPageOptions="[5, 10, 25]" 
       :value="products"
       currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} productos"
@@ -259,8 +256,7 @@ const saveProduct = () => {
           ${{ data.price }}
         </template>
         <template #filter="{ filterModel, filterCallback }">
-          <InputText v-model="filterModel.value" type="number" @input="filterCallback()"
-            placeholder="Buscar por precio" />
+          <InputText v-model="filterModel.value" type="number" @input="filterCallback()" placeholder="Buscar por precio" />
         </template>
       </Column>
       <Column field="inventoryStatus" header="Inventario" style="min-width: 12rem">
@@ -268,8 +264,16 @@ const saveProduct = () => {
           <Tag :value="data.inventoryStatus" :severity="getSeverity(data.inventoryStatus)" />
         </template>
         <template #filter="{ filterModel, filterCallback }">
-          <Select v-model="filterModel.value" @change="filterCallback()" :options="statuses" optionLabel="label" optionValue="value"
-            placeholder="Selecciona una" style="min-width: 12rem" :showClear="true">
+          <Select 
+            :options="statuses" 
+            :showClear="true"
+            @change="filterCallback()" 
+            optionLabel="label" 
+            optionValue="value"
+            placeholder="Selecciona una" 
+            style="min-width: 12rem" 
+            v-model="filterModel.value" 
+          >
           </Select>
         </template>
       </Column>
@@ -309,48 +313,63 @@ const saveProduct = () => {
 
         <div>
           <label for="inventoryStatus" class="block font-bold mb-3">Inventario</label>
-          <Select id="inventoryStatus" v-model="product.inventoryStatus" :options="statuses" optionValue="value"
-            optionLabel="label" placeholder="Select a Status" fluid></Select>
+          <Select 
+            :invalid="submitted && !product.inventoryStatus" 
+            :options="statuses" 
+            fluid
+            id="inventoryStatus" 
+            optionLabel="label" 
+            optionValue="value"
+            placeholder="Select a Status" 
+            v-model="product.inventoryStatus" 
+          >
+          </Select>
+          <small v-if="submitted && !product.inventoryStatus" class="text-red-500">Inventario requerido</small>
         </div>
 
         <div>
           <span class="block font-bold mb-4">Marca</span>
           <div class="grid grid-cols-12 gap-4">
             <div class="flex items-center gap-2 col-span-6">
-              <RadioButton id="category1" v-model="product.brand" name="brand" value="Nike" />
+              <RadioButton id="category1" v-model="product.brand" name="brand" value="Nike" :invalid="submitted && !product.brand" />
               <label for="category1">Nike</label>
             </div>
             <div class="flex items-center gap-2 col-span-6">
-              <RadioButton id="category2" v-model="product.brand" name="brand" value="Adidas" />
+              <RadioButton id="category2" v-model="product.brand" name="brand" value="Adidas" :invalid="submitted && !product.brand" />
               <label for="category2">Adidas</label>
             </div>
             <div class="flex items-center gap-2 col-span-6">
-              <RadioButton id="category3" v-model="product.brand" name="brand" value="Puma" />
+              <RadioButton id="category3" v-model="product.brand" name="brand" value="Puma" :invalid="submitted && !product.brand" />
               <label for="category3">Puma</label>
             </div>
             <div class="flex items-center gap-2 col-span-6">
-              <RadioButton id="category4" v-model="product.brand" name="brand" value="Reebok" />
+              <RadioButton id="category4" v-model="product.brand" name="brand" value="Reebok" :invalid="submitted && !product.brand" />
               <label for="category4">Reebok</label>
             </div>
             <div class="flex items-center gap-2 col-span-6">
-              <RadioButton id="category4" v-model="product.brand" name="brand" value="Asics" />
+              <RadioButton id="category4" v-model="product.brand" name="brand" value="Asics" :invalid="submitted && !product.brand" />
               <label for="category4">Asics</label>
             </div>
             <div class="flex items-center gap-2 col-span-6">
-              <RadioButton id="category4" v-model="product.brand" name="brand" value="New Balance" />
+              <RadioButton id="category4" v-model="product.brand" name="brand" value="New Balance" :invalid="submitted && !product.brand" />
               <label for="category4">New Balance</label>
             </div>
           </div>
+
+          <small v-if="submitted && !product.brand" class="text-red-500">Marca requerida</small>
+
         </div>
 
         <div class="grid grid-cols-12 gap-4">
           <div class="col-span-6">
             <label for="price" class="block font-bold mb-3">Precio</label>
-            <InputNumber id="price" v-model="product.price" mode="currency" currency="USD" locale="en-US" fluid />
+            <InputNumber id="price" v-model="product.price" mode="currency" currency="USD" locale="en-US" fluid :invalid="submitted && !product.price"/>
+            <small v-if="submitted && !product.price" class="text-red-500">Precio requerido</small>
           </div>
           <div class="col-span-6">
             <label for="quantity" class="block font-bold mb-3">En existencia</label>
-            <Checkbox id="quantity" v-model="product.inExistence" :indeterminate="product.inExistence === null" binary />
+            <Checkbox id="quantity" class="block" v-model="product.inExistence" :indeterminate="product.inExistence === null" binary :invalid="submitted && !product.inExistence" />
+            <small v-if="submitted && !product.inExistence" class="text-red-500">En existencia requerido</small>
           </div>
         </div>
       </div>
